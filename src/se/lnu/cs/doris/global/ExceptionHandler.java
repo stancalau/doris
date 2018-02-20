@@ -31,7 +31,8 @@ public class ExceptionHandler {
 			OutOfSpaceException oos = (OutOfSpaceException) e;
 			GlobalMessages.outOfSpace(oos.getCommit());
 		} else {
-			GlobalMessages.somethingWentWrong(e.getMessage());
+			e.printStackTrace();
+			GlobalMessages.somethingWentWrong(e.toString());
 		}
 
 		Runtime.getRuntime().halt(0);

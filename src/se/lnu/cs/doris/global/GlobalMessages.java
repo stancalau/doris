@@ -40,7 +40,7 @@ public class GlobalMessages {
 	 * @param name Name of the commit.
 	 */
 	public static void commitPulled(int id, String name) {
-		System.out.format("Pulled revision %d (Name: %s)\n", id, name);
+		System.out.format("Pulled revision %d (Name: %s)  Thread id %s\n", id, name, Thread.currentThread().getId());
 	}
 	
 	/**

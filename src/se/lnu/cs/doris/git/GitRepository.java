@@ -3,6 +3,8 @@ package se.lnu.cs.doris.git;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.Iterator;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.AnyObjectId;
@@ -17,6 +19,10 @@ import org.eclipse.jgit.revwalk.RevSort;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
 
+import ro.stancalau.datamining.CommitTrackingCSV;
+import ro.stancalau.datamining.FileChangeTrackingCSV;
+import ro.stancalau.datamining.Printer;
+import ro.stancalau.datamining.store.Store;
 import se.lnu.cs.doris.global.ExceptionHandler;
 import se.lnu.cs.doris.global.GlobalMessages;
 import se.lnu.cs.doris.global.OutOfSpaceException;
@@ -46,8 +52,10 @@ import se.lnu.cs.doris.global.Utilities;
 public class GitRepository {
 	//Class specific constants
 	//Because of IO-time compensation there is a minimum of 4 threads. Else double the amount of available cores.
-	private final int MAX_NUMBER_OF_THREADS = (Runtime.getRuntime().availableProcessors() < 2) ? 4 : Runtime.getRuntime().availableProcessors() * 2;
-	
+	private final int MAX_NUMBER_OF_THREADS = 1;//(Runtime.getRuntime().availableProcessors() < 2) ? 4 : Runtime.getRuntime().availableProcessors() * 2;
+
+	private Executor executor = Executors.newSingleThreadExecutor();
+
 	//Class usage
 	private Repository m_headRepository;
 	private String m_repoName;
@@ -64,6 +72,10 @@ public class GitRepository {
 
 	//Strings
 	private String m_master = "master";
+
+	private Store store = new Store();
+
+	private ro.stancalau.datamining.model.Repository repoEntity;
 
 	/**
 	 * Constructor taking the uri flag value.
@@ -174,6 +186,9 @@ public class GitRepository {
 
 		//Set head repository to null.
 		this.m_headRepository = null;
+
+		repoEntity = new ro.stancalau.datamining.model.Repository(m_repoName, m_repoName, uri, m_branch);
+		store.addRepository(repoEntity);
 	}
 
 	/**
@@ -181,7 +196,7 @@ public class GitRepository {
 	 * @throws Exception 
 	 */
 	public void pullBare() throws Exception {
-		String barePath = this.m_target + "/" + this.m_repoName + "_" + this.m_branch + ".git";
+		String barePath = this.m_target + File.separator + this.m_repoName + "_" + this.m_branch + ".git";
 		File file = new File(barePath);
 		
 		if (file.exists()) {
@@ -254,19 +269,18 @@ public class GitRepository {
 						} catch (Exception e) {}
 					}
 					String name = Integer.toString(i);
-					File file = new File(this.m_target + "/" + name);
+					File file = new File(this.m_target + File.separator + name);
 
 					//If the commit already have been mined we remove it in case it's
 					//an older version or another program.
 					if (file.exists()) {
 						Utilities.deleteDirectory(file);
-					}					
-					
-					new Cloner(current, name, i);
-
-					if (!this.m_noLog) {
-						GitLogger.addNode(this.m_target, this.m_repoName, name, current);
 					}
+
+					new Cloner(current, name, i).run();
+
+					GitLogger.addNode(store, repoEntity, this.m_target, this.m_repoName, name, current, rw, m_headRepository);
+
 					this.m_runningThreads++;
 					limit++;
 				}
@@ -289,6 +303,10 @@ public class GitRepository {
 		if (this.m_headRepository != null) {
 			this.m_headRepository.close();
 		}
+
+		//System.out.println(store.toString());
+		new CommitTrackingCSV(store, repoEntity);
+		new FileChangeTrackingCSV(store, repoEntity);
 	}
 
 	/**
@@ -298,7 +316,7 @@ public class GitRepository {
 	 * @throws Exception 
 	 */
 	private void errorHandlingMining(Exception e, RevCommit current) throws Exception {
-		if (e.getMessage().contains("not enough space")) {
+		if (e.getMessage() != null && e.getMessage().contains("not enough space")) {
 			throw new OutOfSpaceException(e.getMessage(), (current != null ? current.getName() : "Initial commit"));
 		} else {
 			throw e;
@@ -372,8 +390,6 @@ public class GitRepository {
 			this.m_current = current;
 			this.m_name = name;
 			this.m_i = i;
-			this.m_thread = new Thread(this);
-			this.m_thread.start();
 		}
 		
 		private void cloneCommit() throws Exception {

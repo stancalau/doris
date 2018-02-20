@@ -26,9 +26,18 @@ public class GlobalStrings {
 	public static Charset UTF8_CHATSET = Charset.forName("UTF-8");
 	//Log strings
 	public static String NAME = "name";
+	public static String NEW_PATH = "new_path";
+	public static String OLD_PATH = "old_path";
+	public static String FILE_COUNT = "file_count";
+	public static String VIOLATIONS = "violations";
+	public static String ADDED_LINES = "added_lines";
+	public static String REMOVED_LINES = "removed_lines";
 	public static String E_MAIL = "e_mail";
 	public static String COMMITTER = "committer";
 	public static String AUTHOR = "author";
+	public static String STATS = "stats";
+	public static String FILES = "files";
+	public static String FILE = "file";
 	public static String COMMIT = "commit";
 	public static String COMMIT_TIME = "commit_time";
 	public static String COMMIT_NUMBER = "commit_number";
